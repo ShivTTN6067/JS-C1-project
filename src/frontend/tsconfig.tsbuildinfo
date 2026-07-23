@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/main.tsx","./src/types.ts","./src/api/client.ts","./src/components/badges.tsx","./src/components/states.tsx","./src/lib/status.ts","./src/pages/ticketcreatepage.tsx","./src/pages/ticketdetailpage.tsx","./src/pages/ticketlistpage.test.tsx","./src/pages/ticketlistpage.tsx","./src/test/setup.ts"],"version":"5.7.2"}

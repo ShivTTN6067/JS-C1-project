@@ -1,0 +1,56 @@
+// Prisma schema for the Support Ticket Management System.
+// Database: SQLite (file-based, persists across restarts).
+// Note: SQLite has no native enum support, so `priority` and `status`
+// are stored as strings and validated at the application layer
+// (see src/domain/statusMachine.ts and src/validation/schemas.ts).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id    Int    @id @default(autoincrement())
+  name  String
+  email String @unique
+  role  String
+
+  createdTickets  Ticket[]  @relation("TicketCreatedBy")
+  assignedTickets Ticket[]  @relation("TicketAssignedTo")
+  comments        Comment[]
+}
+
+model Ticket {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String
+  priority    String   @default("MEDIUM")
+  status      String   @default("OPEN")
+  createdById Int
+  assignedToId Int?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  createdBy  User      @relation("TicketCreatedBy", fields: [createdById], references: [id])
+  assignedTo User?     @relation("TicketAssignedTo", fields: [assignedToId], references: [id])
+  comments   Comment[]
+
+  @@index([status])
+}
+
+model Comment {
+  id          Int      @id @default(autoincrement())
+  ticketId    Int
+  message     String
+  createdById Int
+  createdAt   DateTime @default(now())
+
+  ticket    Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  createdBy User   @relation(fields: [createdById], references: [id])
+
+  @@index([ticketId])
+}

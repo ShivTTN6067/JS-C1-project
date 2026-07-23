@@ -1,0 +1,41 @@
+{
+  "_note": "Human-readable snapshot of the seed data. The authoritative seed script is src/backend/prisma/seed.ts. IDs are assigned by the database at insert time.",
+  "users": [
+    { "name": "Alice Nguyen", "email": "alice@example.com", "role": "AGENT" },
+    { "name": "Bob Martinez", "email": "bob@example.com", "role": "AGENT" },
+    { "name": "Carol Smith", "email": "carol@example.com", "role": "ADMIN" }
+  ],
+  "tickets": [
+    {
+      "title": "Cannot log in after password reset",
+      "description": "User reports the login page rejects the new password immediately after resetting it.",
+      "priority": "HIGH",
+      "status": "OPEN",
+      "createdBy": "Carol Smith",
+      "assignedTo": "Alice Nguyen"
+    },
+    {
+      "title": "Dashboard chart renders blank on Safari",
+      "description": "The analytics chart shows an empty canvas on Safari 17 but works in Chrome and Firefox.",
+      "priority": "MEDIUM",
+      "status": "IN_PROGRESS",
+      "createdBy": "Bob Martinez",
+      "assignedTo": "Bob Martinez"
+    },
+    {
+      "title": "Add CSV export to reports page",
+      "description": "Support exporting the filtered report table to CSV.",
+      "priority": "LOW",
+      "status": "OPEN",
+      "createdBy": "Alice Nguyen",
+      "assignedTo": null
+    }
+  ],
+  "comments": [
+    {
+      "ticket": "Cannot log in after password reset",
+      "message": "Reproduced on staging. Looks like a caching issue on the auth token.",
+      "createdBy": "Alice Nguyen"
+    }
+  ]
+}
