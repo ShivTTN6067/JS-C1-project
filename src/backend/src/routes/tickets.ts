@@ -67,6 +67,7 @@ ticketsRouter.post(
 
     await assertUserExists(data.createdById, "createdById");
     if (data.assignedToId != null) {
+  
       await assertUserExists(data.assignedToId, "assignedToId");
     }
 
