@@ -64,12 +64,12 @@ ticketsRouter.post(
   "/",
   asyncHandler(async (req, res) => {
     const data = createTicketSchema.parse(req.body);
-
+    console.log("data", data);
     await assertUserExists(data.createdById, "createdById");
     if (data.assignedToId != null) {
       await assertUserExists(data.assignedToId, "assignedToId");
     }
-
+    console.log("data.createdById", data.createdById);
     const ticket = await prisma.ticket.create({
       data: {
         title: data.title,
