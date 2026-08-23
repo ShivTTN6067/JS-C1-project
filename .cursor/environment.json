@@ -1,0 +1,20 @@
+{
+  "name": "Support Ticket Management System",
+  "install": "./.cursor/install.sh",
+  "terminals": [
+    {
+      "name": "backend",
+      "command": "cd src/backend && npm run dev",
+      "description": "Express API on http://localhost:4000"
+    },
+    {
+      "name": "frontend",
+      "command": "cd src/frontend && npm run dev",
+      "description": "Vite dev server on http://localhost:5173 (proxies /api to backend)"
+    }
+  ],
+  "ports": [
+    { "name": "api", "port": 4000 },
+    { "name": "web", "port": 5173 }
+  ]
+}
