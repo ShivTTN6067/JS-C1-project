@@ -105,6 +105,26 @@ describe("tickets API - CRUD & search", () => {
     expect(res.status).toBe(400);
   });
 
+  it("rejects creation when assignedToId does not exist", async () => {
+    const res = await createTicket({ assignedToId: 999999 });
+    expect(res.status).toBe(400);
+    expect(res.body.error.message).toMatch(/assignedToId/);
+  });
+
+  it("rejects whitespace-only title and defaults omitted priority to MEDIUM", async () => {
+    const blank = await createTicket({ title: "   " });
+    expect(blank.status).toBe(400);
+
+    const created = await http("POST", "/api/tickets", {
+      title: "No priority sent",
+      description: "Priority should default",
+      createdById: reporterId,
+    });
+    expect(created.status).toBe(201);
+    expect(created.body.priority).toBe("MEDIUM");
+    expect(created.body.status).toBe("OPEN");
+  });
+
   it("lists tickets and filters by status", async () => {
     const a = await createTicket({ title: "Alpha" });
     await createTicket({ title: "Beta" });
@@ -122,11 +142,24 @@ describe("tickets API - CRUD & search", () => {
 
   it("searches tickets by keyword in title/description", async () => {
     await createTicket({ title: "Payment gateway timeout" });
-    await createTicket({ title: "Email delivery delay" });
+    await createTicket({
+      title: "Email delivery delay",
+      description: "SMTP handshake fails in checkout",
+    });
 
-    const res = await http("GET", "/api/tickets?search=payment");
-    expect(res.body).toHaveLength(1);
-    expect(res.body[0].title).toBe("Payment gateway timeout");
+    const byTitle = await http("GET", "/api/tickets?search=payment");
+    expect(byTitle.body).toHaveLength(1);
+    expect(byTitle.body[0].title).toBe("Payment gateway timeout");
+
+    const byDescription = await http("GET", "/api/tickets?search=checkout");
+    expect(byDescription.body).toHaveLength(1);
+    expect(byDescription.body[0].title).toBe("Email delivery delay");
+  });
+
+  it("rejects an unknown status query with 400", async () => {
+    const res = await http("GET", "/api/tickets?status=NOPE");
+    expect(res.status).toBe(400);
+    expect(res.body.error.message).toBe("Validation failed");
   });
 
   it("updates editable fields and reassigns", async () => {
@@ -142,6 +175,53 @@ describe("tickets API - CRUD & search", () => {
     expect(res.body.assignedToId).toBe(assigneeId);
   });
 
+  it("unassigns a ticket and rejects an empty update body", async () => {
+    const created = await createTicket({ assignedToId: assigneeId });
+    expect(created.body.assignedToId).toBe(assigneeId);
+
+    const unassigned = await http("PATCH", `/api/tickets/${created.body.id}`, {
+      assignedToId: null,
+    });
+    expect(unassigned.status).toBe(200);
+    expect(unassigned.body.assignedToId).toBeNull();
+
+    const empty = await http("PATCH", `/api/tickets/${created.body.id}`, {});
+    expect(empty.status).toBe(400);
+  });
+
+  it("does not allow PATCH to change status and bypass the state machine", async () => {
+    const created = await createTicket();
+    const res = await http("PATCH", `/api/tickets/${created.body.id}`, {
+      title: "Still open",
+      status: "CLOSED",
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.title).toBe("Still open");
+    expect(res.body.status).toBe("OPEN");
+  });
+
+  it("returns 400 for a non-integer ticket id", async () => {
+    const res = await http("GET", "/api/tickets/abc");
+    expect(res.status).toBe(400);
+    expect(res.body.error.message).toMatch(/Invalid ticket id/);
+  });
+
+  it("returns 404 when mutating a missing ticket", async () => {
+    const update = await http("PATCH", "/api/tickets/999999", { title: "Nope" });
+    expect(update.status).toBe(404);
+
+    const status = await http("PATCH", "/api/tickets/999999/status", {
+      status: "IN_PROGRESS",
+    });
+    expect(status.status).toBe(404);
+
+    const comment = await http("POST", "/api/tickets/999999/comments", {
+      message: "orphan comment",
+      createdById: reporterId,
+    });
+    expect(comment.status).toBe(404);
+  });
+
   it("adds a comment to a ticket", async () => {
     const created = await createTicket();
     const res = await http("POST", `/api/tickets/${created.body.id}/comments`, {
@@ -153,6 +233,33 @@ describe("tickets API - CRUD & search", () => {
 
     const detail = await http("GET", `/api/tickets/${created.body.id}`);
     expect(detail.body.comments).toHaveLength(1);
+    expect(detail.body.allowedNextStatuses).toEqual(["IN_PROGRESS", "CANCELLED"]);
+  });
+
+  it("rejects a blank comment and a comment from a missing user", async () => {
+    const created = await createTicket();
+    const blank = await http("POST", `/api/tickets/${created.body.id}/comments`, {
+      message: "   ",
+      createdById: reporterId,
+    });
+    expect(blank.status).toBe(400);
+
+    const missingUser = await http(
+      "POST",
+      `/api/tickets/${created.body.id}/comments`,
+      { message: "hello", createdById: 999999 },
+    );
+    expect(missingUser.status).toBe(400);
+  });
+
+  it("lists users for assignee and reporter dropdowns", async () => {
+    const res = await http("GET", "/api/users");
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(2);
+    expect(res.body.map((u: { name: string }) => u.name).sort()).toEqual([
+      "Assignee",
+      "Reporter",
+    ]);
   });
 
   it("returns 404 for a missing ticket", async () => {
@@ -180,6 +287,19 @@ describe("tickets API - status state machine", () => {
     });
     expect(res.status).toBe(200);
     expect(res.body.status).toBe("CANCELLED");
+    expect(res.body.allowedNextStatuses).toEqual([]);
+  });
+
+  it("allows IN_PROGRESS -> CANCELLED", async () => {
+    const created = await createTicket();
+    await http("PATCH", `/api/tickets/${created.body.id}/status`, {
+      status: "IN_PROGRESS",
+    });
+    const res = await http("PATCH", `/api/tickets/${created.body.id}/status`, {
+      status: "CANCELLED",
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe("CANCELLED");
   });
 
   it("rejects OPEN -> RESOLVED (invalid transition) with 400", async () => {
@@ -189,6 +309,11 @@ describe("tickets API - status state machine", () => {
     });
     expect(res.status).toBe(400);
     expect(res.body.error.message).toMatch(/Cannot change status/);
+    expect(res.body.error.details).toEqual({
+      from: "OPEN",
+      to: "RESOLVED",
+      allowed: ["IN_PROGRESS", "CANCELLED"],
+    });
   });
 
   it("rejects transitions out of a terminal state", async () => {

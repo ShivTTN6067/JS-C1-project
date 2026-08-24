@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import TicketListPage from "./TicketListPage";
-import { api } from "../api/client";
+import { api, ApiError } from "../api/client";
 import type { Ticket } from "../types";
 
 function makeTicket(overrides: Partial<Ticket>): Ticket {
@@ -81,5 +81,20 @@ describe("TicketListPage", () => {
     expect(
       await screen.findByText("No tickets match your filters."),
     ).toBeInTheDocument();
+  });
+
+  it("shows an error state when the list request fails", async () => {
+    vi.spyOn(api, "listTickets").mockRejectedValue(
+      new ApiError(500, "Failed to load tickets"),
+    );
+
+    render(
+      <MemoryRouter>
+        <TicketListPage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("Failed to load tickets")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
   });
 });
