@@ -1,6 +1,6 @@
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createApp } from "../src/backend/src/app.js";
 
 /**
@@ -47,14 +47,20 @@ describe("HTTP platform", () => {
   });
 
   it("does not crash the process on malformed JSON bodies", async () => {
-    const res = await fetch(`${baseUrl}/api/tickets`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: '{"title":',
-    });
-    expect(res.status).toBe(500);
-    expect(await res.json()).toEqual({
-      error: { message: "Internal server error" },
-    });
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const res = await fetch(`${baseUrl}/api/tickets`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: '{"title":',
+      });
+      expect(res.status).toBe(500);
+      expect(await res.json()).toEqual({
+        error: { message: "Internal server error" },
+      });
+      expect(consoleSpy).toHaveBeenCalled();
+    } finally {
+      consoleSpy.mockRestore();
+    }
   });
 });

@@ -1,9 +1,9 @@
 import type { NextFunction, Request, Response } from "express";
 import { describe, expect, it, vi } from "vitest";
-import { ZodError, z } from "zod";
 import { asyncHandler } from "../src/backend/src/lib/asyncHandler.js";
 import { InvalidTransitionError, ValidationError } from "../src/backend/src/lib/errors.js";
 import { errorHandler, notFoundHandler } from "../src/backend/src/middleware/errorHandler.js";
+import { createTicketSchema } from "../src/backend/src/validation/schemas.js";
 
 function mockRes() {
   const res = {
@@ -33,11 +33,11 @@ describe("notFoundHandler", () => {
 describe("errorHandler", () => {
   it("maps ZodError to a 400 validation payload", () => {
     const res = mockRes();
-    let zodErr: ZodError | undefined;
+    let zodErr: { flatten: () => unknown } | undefined;
     try {
-      z.object({ title: z.string().min(1) }).parse({});
+      createTicketSchema.parse({});
     } catch (err) {
-      zodErr = err as ZodError;
+      zodErr = err as { flatten: () => unknown };
     }
 
     errorHandler(zodErr, {} as Request, res, vi.fn() as unknown as NextFunction);
