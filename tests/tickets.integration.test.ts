@@ -210,3 +210,131 @@ describe("tickets API - status state machine", () => {
     expect(res.status).toBe(400);
   });
 });
+
+describe("tickets API - assignment, ordering, and integrity", () => {
+  it("creates a ticket with a valid assignee and ignores a client-supplied status", async () => {
+    const res = await createTicket({
+      assignedToId: assigneeId,
+      status: "CLOSED",
+    });
+    expect(res.status).toBe(201);
+    expect(res.body.assignedToId).toBe(assigneeId);
+    expect(res.body.status).toBe("OPEN");
+  });
+
+  it("rejects reassignment to a non-existent user", async () => {
+    const created = await createTicket();
+    const res = await http("PATCH", `/api/tickets/${created.body.id}`, {
+      assignedToId: 999999,
+    });
+    expect(res.status).toBe(400);
+    expect(res.body.error.message).toMatch(/assignedToId/);
+  });
+
+  it("lists newest-updated tickets first", async () => {
+    const older = await createTicket({ title: "Older" });
+    const newer = await createTicket({ title: "Newer" });
+    await prisma.ticket.update({
+      where: { id: older.body.id },
+      data: { updatedAt: new Date("2026-01-01T00:00:00.000Z") },
+    });
+    await prisma.ticket.update({
+      where: { id: newer.body.id },
+      data: { updatedAt: new Date("2026-01-02T00:00:00.000Z") },
+    });
+
+    const list = await http("GET", "/api/tickets");
+    expect(list.body.map((t: { title: string }) => t.title)).toEqual([
+      "Newer",
+      "Older",
+    ]);
+  });
+
+  it("applies search and status filters together", async () => {
+    const paymentOpen = await createTicket({ title: "Payment timeout" });
+    await createTicket({ title: "Payment retry" });
+    await http("PATCH", `/api/tickets/${paymentOpen.body.id}/status`, {
+      status: "IN_PROGRESS",
+    });
+
+    const res = await http(
+      "GET",
+      "/api/tickets?search=payment&status=IN_PROGRESS",
+    );
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(1);
+    expect(res.body[0].title).toBe("Payment timeout");
+  });
+
+  it("treats a whitespace-only search as unfiltered", async () => {
+    await createTicket({ title: "Alpha" });
+    const res = await http("GET", "/api/tickets?search=%20%20%20");
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(1);
+  });
+
+  it("returns comments in chronological order", async () => {
+    const created = await createTicket();
+    const first = await http("POST", `/api/tickets/${created.body.id}/comments`, {
+      message: "first",
+      createdById: reporterId,
+    });
+    const second = await http("POST", `/api/tickets/${created.body.id}/comments`, {
+      message: "second",
+      createdById: assigneeId,
+    });
+    await prisma.comment.update({
+      where: { id: first.body.id },
+      data: { createdAt: new Date("2026-01-01T00:00:00.000Z") },
+    });
+    await prisma.comment.update({
+      where: { id: second.body.id },
+      data: { createdAt: new Date("2026-01-02T00:00:00.000Z") },
+    });
+
+    const detail = await http("GET", `/api/tickets/${created.body.id}`);
+    expect(detail.body.comments.map((c: { message: string }) => c.message)).toEqual([
+      "first",
+      "second",
+    ]);
+  });
+
+  it("rejects non-integer ids on status and comment routes", async () => {
+    const status = await http("PATCH", "/api/tickets/1.5/status", {
+      status: "IN_PROGRESS",
+    });
+    expect(status.status).toBe(400);
+    expect(status.body.error.message).toMatch(/Invalid ticket id/);
+
+    const comment = await http("POST", "/api/tickets/abc/comments", {
+      message: "hello",
+      createdById: reporterId,
+    });
+    expect(comment.status).toBe(400);
+    expect(comment.body.error.message).toMatch(/Invalid ticket id/);
+  });
+
+  it("closes a ticket and then rejects further transitions with empty next statuses", async () => {
+    const created = await createTicket();
+    const id = created.body.id;
+
+    for (const status of ["IN_PROGRESS", "RESOLVED", "CLOSED"]) {
+      const res = await http("PATCH", `/api/tickets/${id}/status`, { status });
+      expect(res.status).toBe(200);
+    }
+
+    const blocked = await http("PATCH", `/api/tickets/${id}/status`, {
+      status: "IN_PROGRESS",
+    });
+    expect(blocked.status).toBe(400);
+    expect(blocked.body.error.details).toEqual({
+      from: "CLOSED",
+      to: "IN_PROGRESS",
+      allowed: [],
+    });
+
+    const detail = await http("GET", `/api/tickets/${id}`);
+    expect(detail.body.status).toBe("CLOSED");
+    expect(detail.body.allowedNextStatuses).toEqual([]);
+  });
+});
