@@ -169,9 +169,30 @@ ticketsRouter.patch(
       );
     }
 
-    const ticket = await prisma.ticket.update({
-      where: { id },
+    // Compare-and-swap on the current status so a concurrent transition cannot
+    // overwrite a newer state with a stale read (TOCTOU race).
+    const updated = await prisma.ticket.updateMany({
+      where: { id, status: currentStatus },
       data: { status: nextStatus },
+    });
+
+    if (updated.count === 0) {
+      const latest = await prisma.ticket.findUnique({ where: { id } });
+      if (!latest) throw new NotFoundError(`Ticket ${id} not found`);
+
+      const latestStatus = latest.status as TicketStatus;
+      throw new InvalidTransitionError(
+        `Cannot change status from ${latestStatus} to ${nextStatus}`,
+        {
+          from: latestStatus,
+          to: nextStatus,
+          allowed: allowedNextStatuses(latestStatus),
+        },
+      );
+    }
+
+    const ticket = await prisma.ticket.findUniqueOrThrow({
+      where: { id },
       include: ticketInclude,
     });
 

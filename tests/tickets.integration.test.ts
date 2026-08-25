@@ -1,6 +1,6 @@
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { createApp } from "../src/backend/src/app.js";
 import { prisma } from "../src/backend/src/lib/prisma.js";
 
@@ -208,5 +208,50 @@ describe("tickets API - status state machine", () => {
       status: "BOGUS",
     });
     expect(res.status).toBe(400);
+  });
+
+  it("rejects a stale status transition after a concurrent change", async () => {
+    const created = await createTicket();
+    const id = created.body.id;
+
+    let releaseFirstRead: () => void = () => {};
+    const firstReadGate = new Promise<void>((resolve) => {
+      releaseFirstRead = resolve;
+    });
+
+    const originalFindUnique = prisma.ticket.findUnique.bind(prisma.ticket);
+    let heldFirstRead = false;
+    const findUniqueSpy = vi
+      .spyOn(prisma.ticket, "findUnique")
+      .mockImplementation(async (args) => {
+        const result = await originalFindUnique(args);
+        if (args?.where?.id === id && !heldFirstRead) {
+          heldFirstRead = true;
+          await firstReadGate;
+        }
+        return result;
+      });
+
+    const inProgressRequest = http("PATCH", `/api/tickets/${id}/status`, {
+      status: "IN_PROGRESS",
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 30));
+
+    const cancelRes = await http("PATCH", `/api/tickets/${id}/status`, {
+      status: "CANCELLED",
+    });
+    expect(cancelRes.status).toBe(200);
+    expect(cancelRes.body.status).toBe("CANCELLED");
+
+    releaseFirstRead();
+    const inProgressRes = await inProgressRequest;
+    expect(inProgressRes.status).toBe(400);
+    expect(inProgressRes.body.error.message).toMatch(/Cannot change status/);
+
+    const final = await prisma.ticket.findUnique({ where: { id } });
+    expect(final?.status).toBe("CANCELLED");
+
+    findUniqueSpy.mockRestore();
   });
 });
