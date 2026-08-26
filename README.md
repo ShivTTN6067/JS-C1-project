@@ -102,6 +102,16 @@ cd src/frontend
 npm test
 ```
 
+End-to-end regression (Playwright — full app in the browser):
+
+```bash
+npm install
+npx playwright install chromium
+npm run test:e2e
+```
+
+See [`e2e/README.md`](e2e/README.md) for headed/UI mode and troubleshooting.
+
 The backend tests use a separate `data/test.db` that is created and reset
 automatically; they never touch development data.
 
