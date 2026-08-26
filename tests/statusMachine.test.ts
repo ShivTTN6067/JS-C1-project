@@ -51,5 +51,7 @@ describe("statusMachine", () => {
   it("validates status strings", () => {
     expect(isValidStatus("OPEN")).toBe(true);
     expect(isValidStatus("NOT_A_STATUS")).toBe(false);
+    expect(isValidStatus("")).toBe(false);
+    expect(isValidStatus("open")).toBe(false);
   });
 });
