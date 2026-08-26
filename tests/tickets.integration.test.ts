@@ -210,3 +210,144 @@ describe("tickets API - status state machine", () => {
     expect(res.status).toBe(400);
   });
 });
+
+describe("tickets API - integrity and persistence", () => {
+  it("leaves the stored status unchanged when a transition is rejected", async () => {
+    const created = await createTicket();
+    const id = created.body.id;
+
+    const res = await http("PATCH", `/api/tickets/${id}/status`, {
+      status: "CLOSED",
+    });
+    expect(res.status).toBe(400);
+
+    const detail = await http("GET", `/api/tickets/${id}`);
+    expect(detail.status).toBe(200);
+    expect(detail.body.status).toBe("OPEN");
+  });
+
+  it("rejects skip-ahead and reverse transitions without mutating the ticket", async () => {
+    const created = await createTicket();
+    const id = created.body.id;
+    await http("PATCH", `/api/tickets/${id}/status`, { status: "IN_PROGRESS" });
+
+    const skip = await http("PATCH", `/api/tickets/${id}/status`, {
+      status: "CLOSED",
+    });
+    expect(skip.status).toBe(400);
+    expect(skip.body.error.details).toEqual({
+      from: "IN_PROGRESS",
+      to: "CLOSED",
+      allowed: ["RESOLVED", "CANCELLED"],
+    });
+
+    const reverse = await http("PATCH", `/api/tickets/${id}/status`, {
+      status: "OPEN",
+    });
+    expect(reverse.status).toBe(400);
+
+    await http("PATCH", `/api/tickets/${id}/status`, { status: "RESOLVED" });
+    const cancelResolved = await http("PATCH", `/api/tickets/${id}/status`, {
+      status: "CANCELLED",
+    });
+    expect(cancelResolved.status).toBe(400);
+    expect(cancelResolved.body.error.details).toEqual({
+      from: "RESOLVED",
+      to: "CANCELLED",
+      allowed: ["CLOSED"],
+    });
+
+    const detail = await http("GET", `/api/tickets/${id}`);
+    expect(detail.body.status).toBe("RESOLVED");
+  });
+
+  it("does not clear unspecified fields on a partial update", async () => {
+    const created = await createTicket({
+      title: "Keep me",
+      description: "Original body",
+      priority: "LOW",
+      assignedToId: assigneeId,
+    });
+
+    const res = await http("PATCH", `/api/tickets/${created.body.id}`, {
+      priority: "HIGH",
+    });
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      title: "Keep me",
+      description: "Original body",
+      priority: "HIGH",
+      assignedToId: assigneeId,
+      status: "OPEN",
+    });
+  });
+
+  it("rejects string user ids instead of coercing them", async () => {
+    const res = await http("POST", "/api/tickets", {
+      title: "Coerce",
+      description: "Ids must be numbers",
+      createdById: String(reporterId),
+    });
+    expect(res.status).toBe(400);
+    expect(res.body.error.message).toBe("Validation failed");
+  });
+
+  it("rejects a status change with no status field", async () => {
+    const created = await createTicket();
+    const res = await http("PATCH", `/api/tickets/${created.body.id}/status`, {});
+    expect(res.status).toBe(400);
+    expect(res.body.error.message).toBe("Validation failed");
+  });
+
+  it("rejects a lowercase status query", async () => {
+    const res = await http("GET", "/api/tickets?status=open");
+    expect(res.status).toBe(400);
+    expect(res.body.error.message).toBe("Validation failed");
+  });
+
+  it("includes reporter and assignee relations on create, list, and detail", async () => {
+    const created = await createTicket({ assignedToId: assigneeId });
+    expect(created.status).toBe(201);
+    expect(created.body.createdBy).toMatchObject({
+      id: reporterId,
+      name: "Reporter",
+    });
+    expect(created.body.assignedTo).toMatchObject({
+      id: assigneeId,
+      name: "Assignee",
+    });
+
+    const list = await http("GET", "/api/tickets");
+    expect(list.body[0].createdBy.name).toBe("Reporter");
+    expect(list.body[0].assignedTo.name).toBe("Assignee");
+
+    const comment = await http("POST", `/api/tickets/${created.body.id}/comments`, {
+      message: "noted",
+      createdById: assigneeId,
+    });
+    expect(comment.status).toBe(201);
+    expect(comment.body.createdBy.name).toBe("Assignee");
+
+    const detail = await http("GET", `/api/tickets/${created.body.id}`);
+    expect(detail.body.comments[0].createdBy.name).toBe("Assignee");
+    expect(detail.body.allowedNextStatuses).toEqual(["IN_PROGRESS", "CANCELLED"]);
+  });
+
+  it("lists users in ascending name order", async () => {
+    await prisma.user.create({
+      data: { name: "Zed", email: "zed@test.local", role: "AGENT" },
+    });
+    await prisma.user.create({
+      data: { name: "Amy", email: "amy@test.local", role: "AGENT" },
+    });
+
+    const res = await http("GET", "/api/users");
+    expect(res.status).toBe(200);
+    expect(res.body.map((u: { name: string }) => u.name)).toEqual([
+      "Amy",
+      "Assignee",
+      "Reporter",
+      "Zed",
+    ]);
+  });
+});
