@@ -14,10 +14,11 @@ datasource db {
 }
 
 model User {
-  id    Int    @id @default(autoincrement())
-  name  String
-  email String @unique
-  role  String
+  id              Int     @id @default(autoincrement())
+  name            String
+  email           String  @unique
+  role            String
+  profilePhotoUrl String?
 
   createdTickets  Ticket[]  @relation("TicketCreatedBy")
   assignedTickets Ticket[]  @relation("TicketAssignedTo")

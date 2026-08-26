@@ -2,6 +2,8 @@ import { Link, Route, Routes } from "react-router-dom";
 import TicketListPage from "./pages/TicketListPage";
 import TicketCreatePage from "./pages/TicketCreatePage";
 import TicketDetailPage from "./pages/TicketDetailPage";
+import UserListPage from "./pages/UserListPage";
+import UserProfilePage from "./pages/UserProfilePage";
 
 export default function App() {
   return (
@@ -16,12 +18,20 @@ export default function App() {
               Support Tickets
             </span>
           </Link>
-          <Link
-            to="/tickets/new"
-            className="rounded-md bg-indigo-600 px-3.5 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-700"
-          >
-            New Ticket
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link
+              to="/users"
+              className="rounded-md px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+            >
+              Profiles
+            </Link>
+            <Link
+              to="/tickets/new"
+              className="rounded-md bg-indigo-600 px-3.5 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-700"
+            >
+              New Ticket
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -30,6 +40,8 @@ export default function App() {
           <Route path="/" element={<TicketListPage />} />
           <Route path="/tickets/new" element={<TicketCreatePage />} />
           <Route path="/tickets/:id" element={<TicketDetailPage />} />
+          <Route path="/users" element={<UserListPage />} />
+          <Route path="/users/:id" element={<UserProfilePage />} />
         </Routes>
       </main>
     </div>

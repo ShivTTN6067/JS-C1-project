@@ -5,6 +5,7 @@ import type { Ticket, TicketPriority, TicketStatus, User } from "../types";
 import { PRIORITY_LABELS, STATUS_LABELS } from "../lib/status";
 import { PriorityBadge, StatusBadge } from "../components/Badges";
 import { ErrorState, LoadingState } from "../components/States";
+import { UserAvatar } from "../components/UserAvatar";
 
 const PRIORITIES: TicketPriority[] = ["LOW", "MEDIUM", "HIGH"];
 
@@ -222,10 +223,21 @@ export default function TicketDetailPage() {
               {ticket.comments && ticket.comments.length > 0 ? (
                 ticket.comments.map((c) => (
                   <li key={c.id} className="rounded-md bg-slate-50 p-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-slate-800">
-                        {c.createdBy?.name ?? `User #${c.createdById}`}
-                      </span>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <UserAvatar
+                          user={
+                            c.createdBy ?? {
+                              name: `User #${c.createdById}`,
+                              profilePhotoUrl: null,
+                            }
+                          }
+                          size="sm"
+                        />
+                        <span className="truncate text-sm font-medium text-slate-800">
+                          {c.createdBy?.name ?? `User #${c.createdById}`}
+                        </span>
+                      </div>
                       <span className="text-xs text-slate-400">
                         {new Date(c.createdAt).toLocaleString()}
                       </span>
@@ -294,14 +306,30 @@ export default function TicketDetailPage() {
               </div>
               <div className="flex items-center justify-between">
                 <dt className="text-slate-500">Assignee</dt>
-                <dd className="text-slate-800">
-                  {ticket.assignedTo ? ticket.assignedTo.name : "Unassigned"}
+                <dd className="flex items-center gap-2 text-slate-800">
+                  {ticket.assignedTo ? (
+                    <>
+                      <UserAvatar user={ticket.assignedTo} size="sm" />
+                      <span>{ticket.assignedTo.name}</span>
+                    </>
+                  ) : (
+                    "Unassigned"
+                  )}
                 </dd>
               </div>
               <div className="flex items-center justify-between">
                 <dt className="text-slate-500">Reporter</dt>
-                <dd className="text-slate-800">
-                  {ticket.createdBy?.name ?? `User #${ticket.createdById}`}
+                <dd className="flex items-center gap-2 text-slate-800">
+                  <UserAvatar
+                    user={
+                      ticket.createdBy ?? {
+                        name: `User #${ticket.createdById}`,
+                        profilePhotoUrl: null,
+                      }
+                    }
+                    size="sm"
+                  />
+                  <span>{ticket.createdBy?.name ?? `User #${ticket.createdById}`}</span>
                 </dd>
               </div>
             </dl>

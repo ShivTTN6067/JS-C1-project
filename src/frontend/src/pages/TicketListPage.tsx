@@ -5,6 +5,7 @@ import type { Ticket, TicketStatus } from "../types";
 import { STATUS_LABELS, STATUS_ORDER } from "../lib/status";
 import { PriorityBadge, StatusBadge } from "../components/Badges";
 import { EmptyState, ErrorState, LoadingState } from "../components/States";
+import { UserAvatar } from "../components/UserAvatar";
 
 type StatusFilter = TicketStatus | "";
 
@@ -100,8 +101,16 @@ export default function TicketListPage() {
                 </div>
                 <div className="mt-3 flex items-center gap-3 text-xs text-slate-400">
                   <span>#{ticket.id}</span>
-                  <span>
-                    Assignee: {ticket.assignedTo ? ticket.assignedTo.name : "Unassigned"}
+                  <span className="flex items-center gap-1.5">
+                    Assignee:
+                    {ticket.assignedTo ? (
+                      <>
+                        <UserAvatar user={ticket.assignedTo} size="sm" />
+                        {ticket.assignedTo.name}
+                      </>
+                    ) : (
+                      "Unassigned"
+                    )}
                   </span>
                 </div>
               </Link>
