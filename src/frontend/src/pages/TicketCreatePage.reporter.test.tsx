@@ -1,0 +1,55 @@
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import TicketCreatePage from "./TicketCreatePage";
+import { api } from "../api/client";
+import type { User } from "../types";
+
+const users: User[] = [
+  { id: 1, name: "Alice", email: "alice@test.local", role: "AGENT" },
+  { id: 2, name: "Bob", email: "bob@test.local", role: "AGENT" },
+];
+
+function renderCreate() {
+  return render(
+    <MemoryRouter initialEntries={["/tickets/new"]}>
+      <Routes>
+        <Route path="/tickets/new" element={<TicketCreatePage />} />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
+describe("TicketCreatePage reporter validation", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("blocks submit when a reporter is not selected even if other fields are filled", async () => {
+    vi.spyOn(api, "listUsers").mockResolvedValue(users);
+    const createSpy = vi.spyOn(api, "createTicket");
+
+    renderCreate();
+    const reporter = await screen.findByRole("combobox", { name: "Reporter" });
+    await waitFor(() => expect(reporter).toHaveValue("1"));
+
+    await userEvent.type(
+      screen.getByPlaceholderText("Short summary of the issue"),
+      "Broken login",
+    );
+    await userEvent.type(
+      screen.getByPlaceholderText("Describe the problem in detail"),
+      "Users cannot sign in",
+    );
+    await userEvent.selectOptions(reporter, "");
+    await userEvent.click(screen.getByRole("button", { name: "Create Ticket" }));
+
+    expect(await screen.findByText("Reporter is required")).toBeInTheDocument();
+    expect(createSpy).not.toHaveBeenCalled();
+  });
+});
