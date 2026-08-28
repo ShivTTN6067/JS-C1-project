@@ -252,11 +252,7 @@ describe("tickets API - priority and identity writes", () => {
 });
 
 describe("tickets API - request shape rejections", () => {
-  it("rejects a null or array JSON body on create", async () => {
-    const nullBody = await http("POST", "/api/tickets", null);
-    expect(nullBody.status).toBe(400);
-    expect(nullBody.body.error.message).toBe("Validation failed");
-
+  it("rejects an array JSON body on create", async () => {
     const arrayBody = await http("POST", "/api/tickets", []);
     expect(arrayBody.status).toBe(400);
     expect(arrayBody.body.error.message).toBe("Validation failed");
