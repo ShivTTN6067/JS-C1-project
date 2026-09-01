@@ -15,7 +15,14 @@ export function createApp() {
   const corsOrigin = process.env.CORS_ORIGIN?.split(",").map((o) => o.trim());
   app.use(cors({ origin: corsOrigin && corsOrigin.length > 0 ? corsOrigin : true }));
   app.use(express.json());
-  app.use("/uploads", express.static(getUploadsRoot()));
+  app.use(
+    "/uploads",
+    (_req, res, next) => {
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      next();
+    },
+    express.static(getUploadsRoot()),
+  );
 
   app.get("/api/health", (_req, res) => res.json({ status: "ok" }));
 

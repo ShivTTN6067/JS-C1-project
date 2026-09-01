@@ -31,6 +31,43 @@ export function buildProfilePhotoUrl(filename: string): string {
   return `/uploads/avatars/${filename}`;
 }
 
+/** Returns true when the file's leading bytes match the declared image MIME type. */
+export function matchesImageMimeType(filePath: string, mimetype: string): boolean {
+  const header = fs.readFileSync(filePath);
+
+  switch (mimetype) {
+    case "image/jpeg":
+      return (
+        header.length >= 3 &&
+        header[0] === 0xff &&
+        header[1] === 0xd8 &&
+        header[2] === 0xff
+      );
+    case "image/png":
+      return (
+        header.length >= 4 &&
+        header[0] === 0x89 &&
+        header[1] === 0x50 &&
+        header[2] === 0x4e &&
+        header[3] === 0x47
+      );
+    case "image/webp":
+      return (
+        header.length >= 12 &&
+        header[0] === 0x52 &&
+        header[1] === 0x49 &&
+        header[2] === 0x46 &&
+        header[3] === 0x46 &&
+        header[8] === 0x57 &&
+        header[9] === 0x45 &&
+        header[10] === 0x42 &&
+        header[11] === 0x50
+      );
+    default:
+      return false;
+  }
+}
+
 /** Remove a stored profile photo file if it exists on disk. */
 export function deleteProfilePhotoFile(profilePhotoUrl: string | null | undefined): void {
   if (!profilePhotoUrl?.startsWith("/uploads/avatars/")) return;
