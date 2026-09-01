@@ -5,7 +5,10 @@ import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../src/backend/src/app.js";
 import { prisma } from "../src/backend/src/lib/prisma.js";
-import { getAvatarsDir } from "../src/backend/src/lib/profilePhotos.js";
+import {
+  getAvatarsDir,
+  getUploadsRoot,
+} from "../src/backend/src/lib/profilePhotos.js";
 
 let server: Server;
 let baseUrl: string;
@@ -162,6 +165,40 @@ describe("User profile photo API", () => {
 
     expect(res.status).toBe(400);
     expect(res.body.error.message).toMatch(/JPEG, PNG, or WebP/i);
+  });
+
+  it("POST with path traversal in user id rejects without writing outside avatars", async () => {
+    const jpeg = Buffer.from(
+      "/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////2wBDAf//////////////////////////////////////////////////////////////////////////////////////wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAb/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCwAA//2Q==",
+      "base64",
+    );
+
+    const avatarsBefore = fs.readdirSync(getAvatarsDir());
+    const uploadsBefore = fs
+      .readdirSync(getUploadsRoot())
+      .filter((name) => name.endsWith(".png") || name.endsWith(".jpg"));
+
+    const form = new FormData();
+    form.append(
+      "photo",
+      new Blob([jpeg], { type: "image/jpeg" }),
+      "avatar.jpg",
+    );
+
+    const res = await fetch(
+      `${baseUrl}/api/users/${encodeURIComponent("../../..")}/profile-photo`,
+      { method: "POST", body: form },
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(body.error.message).toMatch(/validation failed|invalid user id/i);
+    expect(fs.readdirSync(getAvatarsDir())).toEqual(avatarsBefore);
+    expect(
+      fs
+        .readdirSync(getUploadsRoot())
+        .filter((name) => name.endsWith(".png") || name.endsWith(".jpg")),
+    ).toEqual(uploadsBefore);
   });
 
   it("POST /api/users/:id/profile-photo returns 404 for missing user", async () => {
