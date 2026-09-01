@@ -12,6 +12,7 @@ export interface User {
   name: string;
   email: string;
   role: string;
+  profilePhotoUrl?: string | null;
 }
 
 export interface Comment {

@@ -37,6 +37,28 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await res.json()) as T;
 }
 
+async function uploadRequest<T>(path: string, formData: FormData): Promise<T> {
+  const res = await fetch(`${BASE_URL}${path}`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!res.ok) {
+    let message = `Request failed (${res.status})`;
+    let details: unknown;
+    try {
+      const body = await res.json();
+      message = body?.error?.message ?? message;
+      details = body?.error?.details;
+    } catch {
+      // response had no JSON body
+    }
+    throw new ApiError(res.status, message, details);
+  }
+
+  return (await res.json()) as T;
+}
+
 export interface ListTicketsParams {
   search?: string;
   status?: TicketStatus | "";
@@ -44,6 +66,17 @@ export interface ListTicketsParams {
 
 export const api = {
   listUsers: () => request<User[]>("/users"),
+
+  getUser: (id: number) => request<User>(`/users/${id}`),
+
+  uploadProfilePhoto: (userId: number, file: File) => {
+    const formData = new FormData();
+    formData.append("photo", file);
+    return uploadRequest<User>(`/users/${userId}/profile-photo`, formData);
+  },
+
+  deleteProfilePhoto: (userId: number) =>
+    request<User>(`/users/${userId}/profile-photo`, { method: "DELETE" }),
 
   listTickets: (params: ListTicketsParams = {}) => {
     const qs = new URLSearchParams();

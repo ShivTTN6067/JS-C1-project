@@ -1,4 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
+import { MulterError } from "multer";
 import { ZodError } from "zod";
 import { AppError } from "../lib/errors.js";
 
@@ -27,6 +28,14 @@ export function errorHandler(
         details: err.flatten(),
       },
     });
+  }
+
+  if (err instanceof MulterError) {
+    const message =
+      err.code === "LIMIT_FILE_SIZE"
+        ? "Profile photo must be 2 MB or smaller"
+        : err.message;
+    return res.status(400).json({ error: { message } });
   }
 
   if (err instanceof AppError) {

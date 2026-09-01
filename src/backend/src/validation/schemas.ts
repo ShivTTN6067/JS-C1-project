@@ -38,3 +38,7 @@ export const listTicketsQuerySchema = z.object({
   search: z.string().trim().optional(),
   status: z.enum(TICKET_STATUSES).optional(),
 });
+
+export const userIdParamSchema = z.object({
+  id: z.coerce.number().int().positive(),
+});
