@@ -8,6 +8,7 @@ import {
   ensureUploadDirs,
 } from "../lib/profilePhotos.js";
 import { profilePhotoUpload } from "../middleware/upload.js";
+import { validateUserIdParam } from "../middleware/validateUserIdParam.js";
 import { userIdParamSchema } from "../validation/schemas.js";
 
 export const usersRouter = Router();
@@ -39,6 +40,7 @@ usersRouter.get(
 /** POST /api/users/:id/profile-photo - upload or replace a user's profile photo. */
 usersRouter.post(
   "/:id/profile-photo",
+  validateUserIdParam,
   profilePhotoUpload.single("photo"),
   asyncHandler(async (req, res) => {
     const { id } = userIdParamSchema.parse(req.params);
