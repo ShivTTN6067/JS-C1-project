@@ -86,6 +86,15 @@ configuration is needed in development.
 
 Open http://localhost:5173 in your browser.
 
+### 3. Profile photos
+
+1. Click **Profiles** in the header.
+2. Select a team member.
+3. Upload a JPEG, PNG, or WebP image (max 2 MB).
+4. Avatars appear on ticket lists, ticket details, and comments.
+
+Uploaded files are stored under `src/backend/uploads/avatars/` (gitignored).
+
 ## Running Tests
 
 Backend (state-machine unit tests + API integration tests):
@@ -119,6 +128,7 @@ automatically; they never touch development data.
 
 - Create, list, view, and update tickets (title, description, priority, assignee).
 - Add comments to a ticket.
+- Upload profile photos for team members (`/users`).
 - Keyword search (title/description) and filter by status.
 - Enforced status state machine (invalid transitions rejected by the backend).
 - Backend input validation (Zod) and consistent JSON error responses.
