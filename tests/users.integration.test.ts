@@ -165,10 +165,15 @@ describe("User profile photo API", () => {
   });
 
   it("POST /api/users/:id/profile-photo returns 404 for missing user", async () => {
+    const jpeg = Buffer.from(
+      "/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////2wBDAf//////////////////////////////////////////////////////////////////////////////////////wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAb/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCwAA//2Q==",
+      "base64",
+    );
+
     const res = await uploadPhoto(9999, {
       filename: "avatar.jpg",
       contentType: "image/jpeg",
-      data: Buffer.from("fake"),
+      data: jpeg,
     });
 
     expect(res.status).toBe(404);

@@ -6,6 +6,7 @@ import {
   buildProfilePhotoUrl,
   deleteProfilePhotoFile,
   ensureUploadDirs,
+  matchesImageMimeType,
 } from "../lib/profilePhotos.js";
 import { profilePhotoUpload } from "../middleware/upload.js";
 import { userIdParamSchema } from "../validation/schemas.js";
@@ -45,6 +46,11 @@ usersRouter.post(
 
     if (!req.file) {
       throw new ValidationError("A profile photo file is required (field name: photo)");
+    }
+
+    if (!matchesImageMimeType(req.file.path, req.file.mimetype)) {
+      deleteProfilePhotoFile(buildProfilePhotoUrl(req.file.filename));
+      throw new ValidationError("Profile photo must be a JPEG, PNG, or WebP image");
     }
 
     const existing = await prisma.user.findUnique({ where: { id } });

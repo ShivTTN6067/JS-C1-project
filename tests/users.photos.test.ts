@@ -151,6 +151,32 @@ describe("User profile photo validation and formats", () => {
     expect(res.body.error.message).toMatch(/JPEG, PNG, or WebP/i);
   });
 
+  it("rejects HTML disguised as JPEG and does not persist a .html avatar", async () => {
+    const before = fs.readdirSync(getAvatarsDir());
+
+    const res = await uploadPhoto(userId, {
+      filename: "evil.html",
+      contentType: "image/jpeg",
+      data: Buffer.from("<html><body><script>alert(1)</script></body></html>"),
+    });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.message).toMatch(/JPEG, PNG, or WebP/i);
+    expect(fs.readdirSync(getAvatarsDir())).toEqual(before);
+  });
+
+  it("stores uploads with an extension derived from MIME type, not original filename", async () => {
+    const res = await uploadPhoto(userId, {
+      filename: "avatar.html",
+      contentType: "image/png",
+      data: PNG_1x1,
+    });
+
+    expect(res.status).toBe(200);
+    expect(res.body.profilePhotoUrl).toMatch(/\.png$/);
+    expect(res.body.profilePhotoUrl).not.toMatch(/\.html$/);
+  });
+
   it("rejects a payload larger than 2 MB with a size-specific message", async () => {
     const oversized = Buffer.alloc(2 * 1024 * 1024 + 1, 0xff);
     const res = await uploadPhoto(userId, {
