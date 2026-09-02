@@ -9,6 +9,7 @@ export default defineConfig({
     globals: true,
     env: {
       DATABASE_URL: "file:../data/test.db",
+      PLATFORM_ADMIN_TOKEN: "test-platform-admin-token",
     },
   },
 });

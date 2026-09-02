@@ -1,8 +1,7 @@
-// Prisma schema for the Support Ticket Management System.
+// Prisma schema for the Support Ticket Management System
+// plus VideoReady / Micro-Drama Phase 1 catalog, entitlements, and playback.
 // Database: SQLite (file-based, persists across restarts).
-// Note: SQLite has no native enum support, so `priority` and `status`
-// are stored as strings and validated at the application layer
-// (see src/domain/statusMachine.ts and src/validation/schemas.ts).
+// String fields that represent enums are validated at the application layer.
 
 generator client {
   provider = "prisma-client-js"
@@ -26,15 +25,15 @@ model User {
 }
 
 model Ticket {
-  id          Int      @id @default(autoincrement())
-  title       String
-  description String
-  priority    String   @default("MEDIUM")
-  status      String   @default("OPEN")
-  createdById Int
+  id           Int      @id @default(autoincrement())
+  title        String
+  description  String
+  priority     String   @default("MEDIUM")
+  status       String   @default("OPEN")
+  createdById  Int
   assignedToId Int?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   createdBy  User      @relation("TicketCreatedBy", fields: [createdById], references: [id])
   assignedTo User?     @relation("TicketAssignedTo", fields: [assignedToId], references: [id])
@@ -54,4 +53,190 @@ model Comment {
   createdBy User   @relation(fields: [createdById], references: [id])
 
   @@index([ticketId])
+}
+
+// --- VideoReady / Micro-Drama ---
+
+model PlatformConfig {
+  id             Int    @id
+  deploymentMode String @default("HYBRID") // HYBRID | VR_ONLY | MD_ONLY
+  adSlotEveryN   Int    @default(4)
+}
+
+model Account {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  name         String
+  passwordHash String
+  createdAt    DateTime @default(now())
+
+  profiles      Profile[]
+  sessions      Session[]
+  subscriptions UserSubscription[]
+  progress      WatchProgress[]
+  watchlist     WatchlistItem[]
+}
+
+model Profile {
+  id        Int     @id @default(autoincrement())
+  accountId Int
+  name      String
+  type      String // REGULAR | KIDS
+  account   Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+}
+
+model Session {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique
+  accountId Int
+  profileId Int?
+  expiresAt DateTime
+  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+}
+
+model EntitlementGroup {
+  id     Int      @id @default(autoincrement())
+  code   String   @unique
+  name   String
+  series Series[]
+}
+
+model Series {
+  id                   Int       @id @default(autoincrement())
+  title                String
+  synopsis             String
+  posterUrl            String
+  contentType          String // MICRO_DRAMA | VOD
+  category             String
+  freeEpisodeThreshold Int       @default(3)
+  startDate            DateTime
+  endDate              DateTime?
+  entitlementGroupId   Int?
+  published            Boolean   @default(true)
+
+  entitlementGroup EntitlementGroup? @relation(fields: [entitlementGroupId], references: [id])
+  seasons          Season[]
+  watchlist        WatchlistItem[]
+  railItems        RailItem[]
+  progress         WatchProgress[]
+
+  @@index([contentType])
+  @@index([category])
+}
+
+model Season {
+  id       Int    @id @default(autoincrement())
+  seriesId Int
+  number   Int
+  title    String
+  series   Series @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  episodes Episode[]
+
+  @@unique([seriesId, number])
+}
+
+model Episode {
+  id              Int     @id @default(autoincrement())
+  seasonId        Int
+  number          Int
+  title           String
+  synopsis        String
+  durationSeconds Int
+  isCliffhanger   Boolean @default(false)
+  videoUrl        String
+  videoUrlLow     String?
+  videoUrlHigh    String?
+  posterUrl       String
+  season          Season  @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  progress        WatchProgress[]
+
+  @@unique([seasonId, number])
+}
+
+model Rail {
+  id         Int        @id @default(autoincrement())
+  experience String // MD | VR
+  title      String
+  type       String // CONTINUE_WATCHING | CATEGORY | EDITORIAL
+  category   String?
+  sortOrder  Int
+  items      RailItem[]
+
+  @@index([experience])
+}
+
+model RailItem {
+  id        Int    @id @default(autoincrement())
+  railId    Int
+  seriesId  Int
+  sortOrder Int
+  rail      Rail   @relation(fields: [railId], references: [id], onDelete: Cascade)
+  series    Series @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+}
+
+model SubscriptionPack {
+  id           Int    @id @default(autoincrement())
+  code         String // PACK_1 | PACK_2 | PACK_3
+  name         String
+  billingCycle String // WEEKLY | ANNUAL
+  description  String
+  priceCents   Int
+  coversVod    Boolean
+  coversAllMd  Boolean
+
+  @@unique([code, billingCycle])
+}
+
+model PackGroupAccess {
+  id                 Int    @id @default(autoincrement())
+  packCode           String
+  entitlementGroupId Int
+}
+
+model UserSubscription {
+  id                  Int      @id @default(autoincrement())
+  accountId           Int
+  packCode            String
+  billingCycle        String
+  autoRenew           Boolean  @default(true)
+  status              String   @default("ACTIVE") // ACTIVE | CANCELLED | EXPIRED
+  purchaseChannel     String   @default("WEB") // WEB | IAP
+  entitlementGroupId  Int?
+  startsAt            DateTime @default(now())
+  expiresAt           DateTime
+  account             Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+}
+
+model WatchProgress {
+  id              Int      @id @default(autoincrement())
+  accountId       Int
+  seriesId        Int
+  episodeId       Int
+  positionSeconds Int      @default(0)
+  durationSeconds Int
+  completed       Boolean  @default(false)
+  updatedAt       DateTime @updatedAt
+  account         Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  series          Series   @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  episode         Episode  @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, episodeId])
+  @@index([accountId, updatedAt])
+}
+
+model WatchlistItem {
+  id        Int      @id @default(autoincrement())
+  accountId Int
+  seriesId  Int
+  createdAt DateTime @default(now())
+  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  series    Series   @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, seriesId])
 }

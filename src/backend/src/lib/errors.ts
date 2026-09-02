@@ -33,3 +33,22 @@ export class InvalidTransitionError extends AppError {
     super(400, message, details);
   }
 }
+
+export class UnauthorizedError extends AppError {
+  constructor(message = "Authentication required") {
+    super(401, message);
+  }
+}
+
+export class ForbiddenError extends AppError {
+  constructor(message = "Forbidden", details?: unknown) {
+    super(403, message, details);
+  }
+}
+
+/** Raised when playback requires a subscription pack. */
+export class PaywallError extends AppError {
+  constructor(message: string, details?: unknown) {
+    super(402, message, details);
+  }
+}
