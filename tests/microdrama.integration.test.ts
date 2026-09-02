@@ -302,6 +302,27 @@ describe("Micro Drama Phase 1 API", () => {
     expect(paid.body.error.details.cliffhanger).toBe(true);
   });
 
+  it("keeps paid access until expiry when a subscription is cancelled", async () => {
+    const token = await login("vip@test.local");
+    const series = await prisma.series.findFirst({ where: { title: "Hooked" } });
+    const episode = await prisma.episode.findFirst({
+      where: { season: { seriesId: series!.id }, number: 3 },
+    });
+
+    const cancelled = await http("POST", "/api/library/subscribe/cancel", undefined, token);
+    expect(cancelled.status).toBe(200);
+
+    const play = await http("GET", `/api/playback/episodes/${episode!.id}`, undefined, token);
+    expect(play.status).toBe(200);
+
+    const sub = await prisma.userSubscription.findFirst({
+      where: { accountId: (await prisma.account.findUnique({ where: { email: "vip@test.local" } }))!.id },
+      orderBy: { expiresAt: "desc" },
+    });
+    expect(sub?.status).toBe("ACTIVE");
+    expect(sub?.autoRenew).toBe(false);
+  });
+
   it("lets Pack 1 skip the paywall and stores watchlist + progress", async () => {
     const token = await login("vip@test.local");
     const series = await prisma.series.findFirst({ where: { title: "Hooked" } });

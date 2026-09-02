@@ -149,7 +149,7 @@ libraryRouter.post(
   asyncHandler(async (req, res) => {
     await prisma.userSubscription.updateMany({
       where: { accountId: req.auth!.accountId, status: "ACTIVE" },
-      data: { autoRenew: false, status: "CANCELLED" },
+      data: { autoRenew: false },
     });
     res.json({ message: "Subscription cancelled. Access remains until the period ends." });
   }),
