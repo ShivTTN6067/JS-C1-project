@@ -353,6 +353,40 @@ describe("Micro Drama Phase 1 API", () => {
     expect(sub?.autoRenew).toBe(false);
   });
 
+  it("resubscribing after cancel preserves the remaining paid period", async () => {
+    const session = await login("vip@test.local");
+    const token = session.token;
+    const accountId = (await prisma.account.findUnique({ where: { email: "vip@test.local" } }))!.id;
+
+    const before = await prisma.userSubscription.findFirst({
+      where: { accountId, status: "ACTIVE" },
+    });
+    expect(before).toBeTruthy();
+    const originalExpiry = before!.expiresAt.getTime();
+
+    await http("POST", "/api/library/subscribe/cancel", undefined, token);
+
+    const resubscribed = await http(
+      "POST",
+      "/api/library/subscribe",
+      { packCode: "PACK_1", billingCycle: "WEEKLY" },
+      token,
+    );
+    expect(resubscribed.status).toBe(201);
+
+    const after = await prisma.userSubscription.findFirst({
+      where: { accountId, status: "ACTIVE" },
+    });
+    expect(after?.id).toBe(before!.id);
+    expect(after!.expiresAt.getTime()).toBe(originalExpiry);
+    expect(after!.autoRenew).toBe(true);
+
+    const activeCount = await prisma.userSubscription.count({
+      where: { accountId, status: "ACTIVE" },
+    });
+    expect(activeCount).toBe(1);
+  });
+
   it("rejects Pack 2 subscribe with an unknown entitlement group", async () => {
     const session = await login("free@test.local");
     const token = session.token;

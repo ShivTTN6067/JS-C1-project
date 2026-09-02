@@ -141,6 +141,32 @@ libraryRouter.post(
     }
 
     const sub = await prisma.$transaction(async (tx) => {
+      const now = new Date();
+      const existing = await tx.userSubscription.findFirst({
+        where: {
+          accountId: req.auth!.accountId,
+          status: "ACTIVE",
+          packCode: data.packCode,
+          billingCycle: data.billingCycle,
+          expiresAt: { gt: now },
+        },
+      });
+
+      // Re-subscribing to the same pack restores auto-renew without replacing
+      // the paid period (mirrors cancel semantics).
+      if (existing) {
+        return tx.userSubscription.update({
+          where: { id: existing.id },
+          data: {
+            autoRenew: true,
+            purchaseChannel: data.purchaseChannel,
+            ...(data.packCode === "PACK_2"
+              ? { entitlementGroupId: data.entitlementGroupId ?? null }
+              : {}),
+          },
+        });
+      }
+
       await tx.userSubscription.updateMany({
         where: { accountId: req.auth!.accountId, status: "ACTIVE" },
         data: { status: "CANCELLED", autoRenew: false },
