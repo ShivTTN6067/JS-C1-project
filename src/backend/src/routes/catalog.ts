@@ -2,7 +2,7 @@ import { Router } from "express";
 import { asyncHandler } from "../lib/asyncHandler.js";
 import { prisma } from "../lib/prisma.js";
 import { NotFoundError } from "../lib/errors.js";
-import { optionalAuth } from "../middleware/auth.js";
+import { assertMicroDramaAllowed, optionalAuth } from "../middleware/auth.js";
 import {
   contentTypeForExperience,
   episodeIndexInList,
@@ -21,6 +21,7 @@ catalogRouter.get(
   optionalAuth,
   asyncHandler(async (req, res) => {
     const { experience } = experienceQuerySchema.parse(req.query);
+    if (experience === "MD") assertMicroDramaAllowed(req.auth);
     const contentType = contentTypeForExperience(experience);
     const config = await prisma.platformConfig.findUnique({ where: { id: 1 } });
     const adSlotEveryN = config?.adSlotEveryN ?? 4;
@@ -78,6 +79,7 @@ catalogRouter.get(
   optionalAuth,
   asyncHandler(async (req, res) => {
     const { experience, q } = searchQuerySchema.parse(req.query);
+    if (experience === "MD") assertMicroDramaAllowed(req.auth);
     const contentType = contentTypeForExperience(experience);
     const rows = await prisma.series.findMany({
       where: {
@@ -106,6 +108,7 @@ catalogRouter.get(
       },
     });
     if (!series || !isSeriesVisible(series)) throw new NotFoundError(`Series ${id} not found`);
+    if (series.contentType === "MICRO_DRAMA") assertMicroDramaAllowed(req.auth);
 
     const episodes = await orderedEpisodesForSeries(series.id);
     const pack = req.auth ? await getActivePack(req.auth.accountId) : null;

@@ -2,7 +2,7 @@ import { Router } from "express";
 import { asyncHandler } from "../lib/asyncHandler.js";
 import { prisma } from "../lib/prisma.js";
 import { NotFoundError, PaywallError, UnauthorizedError } from "../lib/errors.js";
-import { optionalAuth, requireAuth } from "../middleware/auth.js";
+import { optionalAuth, requireAuth, assertMicroDramaAllowed } from "../middleware/auth.js";
 import {
   episodeIndexInList,
   isSeriesVisible,
@@ -29,6 +29,7 @@ playbackRouter.get(
 
     const series = episode.season.series;
     if (!isSeriesVisible(series)) throw new NotFoundError(`Episode ${id} not found`);
+    if (series.contentType === "MICRO_DRAMA") assertMicroDramaAllowed(req.auth);
 
     const episodes = await orderedEpisodesForSeries(series.id);
     const index = episodeIndexInList(episodes, episode.id);

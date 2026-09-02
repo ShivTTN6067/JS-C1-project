@@ -2,7 +2,7 @@ import { Router } from "express";
 import { asyncHandler } from "../lib/asyncHandler.js";
 import { prisma } from "../lib/prisma.js";
 import { NotFoundError, ValidationError } from "../lib/errors.js";
-import { requireAuth } from "../middleware/auth.js";
+import { requireAuth, assertMicroDramaAllowed } from "../middleware/auth.js";
 import { isSeriesVisible, serializeSeriesCard, contentTypeForExperience } from "../domain/catalog.js";
 import { nextBillingExpiry } from "../domain/entitlement.js";
 import { getActivePack } from "../lib/subscriptions.js";
@@ -20,6 +20,7 @@ libraryRouter.get(
   requireAuth,
   asyncHandler(async (req, res) => {
     const { experience } = experienceQuerySchema.parse(req.query);
+    if (experience === "MD") assertMicroDramaAllowed(req.auth);
     const contentType = contentTypeForExperience(experience);
     const rows = await prisma.watchlistItem.findMany({
       where: { accountId: req.auth!.accountId, series: { contentType } },
@@ -39,6 +40,7 @@ libraryRouter.post(
     const { seriesId } = watchlistSchema.parse(req.body);
     const series = await prisma.series.findUnique({ where: { id: seriesId } });
     if (!series || !isSeriesVisible(series)) throw new NotFoundError(`Series ${seriesId} not found`);
+    if (series.contentType === "MICRO_DRAMA") assertMicroDramaAllowed(req.auth);
 
     const item = await prisma.watchlistItem.upsert({
       where: {
@@ -70,6 +72,7 @@ libraryRouter.get(
   requireAuth,
   asyncHandler(async (req, res) => {
     const { experience } = experienceQuerySchema.parse(req.query);
+    if (experience === "MD") assertMicroDramaAllowed(req.auth);
     const contentType = contentTypeForExperience(experience);
     const rows = await prisma.watchProgress.findMany({
       where: { accountId: req.auth!.accountId, completed: false, series: { contentType } },
@@ -119,6 +122,10 @@ libraryRouter.post(
 
     if (data.packCode === "PACK_2" && !data.entitlementGroupId) {
       throw new ValidationError("Pack 2 requires an entitlement group");
+    }
+
+    if (data.packCode === "PACK_1" || data.packCode === "PACK_2") {
+      assertMicroDramaAllowed(req.auth);
     }
 
     if (data.packCode === "PACK_2") {

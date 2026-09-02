@@ -1,6 +1,6 @@
 import type { Request } from "express";
 import { prisma } from "../lib/prisma.js";
-import { UnauthorizedError } from "../lib/errors.js";
+import { ForbiddenError, UnauthorizedError } from "../lib/errors.js";
 import { asyncHandler } from "../lib/asyncHandler.js";
 
 export interface AuthContext {
@@ -60,6 +60,13 @@ export const optionalAuth = asyncHandler(async (req, _res, next) => {
   }
   next();
 });
+
+/** Kids profiles must not access Micro Drama catalog, playback, or MD packs. */
+export function assertMicroDramaAllowed(auth: AuthContext | undefined): void {
+  if (auth?.profileType === "KIDS") {
+    throw new ForbiddenError("Micro Drama is not available for Kids profiles");
+  }
+}
 
 /** Required auth. */
 export const requireAuth = asyncHandler(async (req, _res, next) => {

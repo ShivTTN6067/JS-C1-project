@@ -242,7 +242,12 @@ async function resetCatalog() {
 async function login(email: string) {
   const res = await http("POST", "/api/auth/login", { email, password: "password123" });
   expect(res.status).toBe(200);
-  return res.body.token as string;
+  return res.body as { token: string; profiles: { id: number; type: string }[] };
+}
+
+async function selectProfile(token: string, profileId: number) {
+  const res = await http("POST", "/api/auth/profile", { profileId }, token);
+  expect(res.status).toBe(200);
 }
 
 beforeAll(async () => {
@@ -291,8 +296,26 @@ describe("Micro Drama Phase 1 API", () => {
     expect(res.status).toBe(401);
   });
 
+  it("blocks Kids profiles from Micro Drama catalog and playback", async () => {
+    const session = await login("vip@test.local");
+    const kidsProfile = session.profiles.find((p) => p.type === "KIDS");
+    expect(kidsProfile).toBeDefined();
+    await selectProfile(session.token, kidsProfile!.id);
+
+    const home = await http("GET", "/api/catalog/home?experience=MD", undefined, session.token);
+    expect(home.status).toBe(403);
+
+    const series = await prisma.series.findFirst({ where: { title: "Hooked" } });
+    const episode = await prisma.episode.findFirst({
+      where: { season: { seriesId: series!.id }, number: 1 },
+    });
+    const play = await http("GET", `/api/playback/episodes/${episode!.id}`, undefined, session.token);
+    expect(play.status).toBe(403);
+  });
+
   it("plays free episodes and paywalls the episode after a cliffhanger", async () => {
-    const token = await login("free@test.local");
+    const session = await login("free@test.local");
+    const token = session.token;
     const series = await prisma.series.findFirst({ where: { title: "Hooked" } });
     const episodes = await prisma.episode.findMany({
       where: { season: { seriesId: series!.id } },
@@ -309,7 +332,8 @@ describe("Micro Drama Phase 1 API", () => {
   });
 
   it("keeps paid access until expiry when a subscription is cancelled", async () => {
-    const token = await login("vip@test.local");
+    const session = await login("vip@test.local");
+    const token = session.token;
     const series = await prisma.series.findFirst({ where: { title: "Hooked" } });
     const episode = await prisma.episode.findFirst({
       where: { season: { seriesId: series!.id }, number: 3 },
@@ -330,7 +354,8 @@ describe("Micro Drama Phase 1 API", () => {
   });
 
   it("rejects Pack 2 subscribe with an unknown entitlement group", async () => {
-    const token = await login("free@test.local");
+    const session = await login("free@test.local");
+    const token = session.token;
     const res = await http(
       "POST",
       "/api/library/subscribe",
@@ -346,7 +371,8 @@ describe("Micro Drama Phase 1 API", () => {
   });
 
   it("subscribes to Pack 2 with a valid entitlement group and unlocks matching content", async () => {
-    const token = await login("free@test.local");
+    const session = await login("free@test.local");
+    const token = session.token;
     const groupA = await prisma.entitlementGroup.findFirst({ where: { code: "GROUP_A" } });
     const hooked = await prisma.series.findFirst({ where: { title: "Hooked" } });
     const otherGroup = await prisma.series.findFirst({ where: { title: "Other Group Drama" } });
@@ -377,7 +403,8 @@ describe("Micro Drama Phase 1 API", () => {
   });
 
   it("lets Pack 1 skip the paywall and stores watchlist + progress", async () => {
-    const token = await login("vip@test.local");
+    const session = await login("vip@test.local");
+    const token = session.token;
     const series = await prisma.series.findFirst({ where: { title: "Hooked" } });
     const episode = await prisma.episode.findFirst({
       where: { season: { seriesId: series!.id }, number: 3 },
