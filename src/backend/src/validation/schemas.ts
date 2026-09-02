@@ -42,3 +42,54 @@ export const listTicketsQuerySchema = z.object({
 export const userIdParamSchema = z.object({
   id: z.coerce.number().int().positive(),
 });
+
+export const loginSchema = z.object({
+  email: z.string().trim().email(),
+  password: z.string().min(1),
+});
+
+export const registerSchema = z.object({
+  email: z.string().trim().email(),
+  name: z.string().trim().min(1).max(80),
+  password: z.string().min(6).max(100),
+});
+
+export const selectProfileSchema = z.object({
+  profileId: z.number().int().positive(),
+});
+
+export const platformConfigSchema = z.object({
+  deploymentMode: z.enum(["HYBRID", "VR_ONLY", "MD_ONLY"]).optional(),
+  adSlotEveryN: z.number().int().min(1).max(20).optional(),
+});
+
+export const experienceQuerySchema = z.object({
+  experience: z.enum(["MD", "VR"]),
+});
+
+export const searchQuerySchema = z.object({
+  experience: z.enum(["MD", "VR"]),
+  q: z.string().trim().min(1).max(80),
+});
+
+export const progressSchema = z.object({
+  episodeId: z.number().int().positive(),
+  positionSeconds: z.number().min(0),
+  durationSeconds: z.number().positive(),
+  completed: z.boolean().optional(),
+});
+
+export const watchlistSchema = z.object({
+  seriesId: z.number().int().positive(),
+});
+
+export const subscribeSchema = z.object({
+  packCode: z.enum(["PACK_1", "PACK_2", "PACK_3"]),
+  billingCycle: z.enum(["WEEKLY", "ANNUAL"]),
+  purchaseChannel: z.enum(["WEB", "IAP"]).default("WEB"),
+  entitlementGroupId: z.number().int().positive().optional(),
+});
+
+export const idParamSchema = z.object({
+  id: z.coerce.number().int().positive(),
+});
