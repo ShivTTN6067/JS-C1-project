@@ -53,15 +53,20 @@ usersRouter.post(
       throw new NotFoundError(`User not found (id=${id})`);
     }
 
-    deleteProfilePhotoFile(existing.profilePhotoUrl);
-
     const profilePhotoUrl = buildProfilePhotoUrl(req.file.filename);
-    const user = await prisma.user.update({
-      where: { id },
-      data: { profilePhotoUrl },
-    });
+    const previousPhotoUrl = existing.profilePhotoUrl;
 
-    res.json(user);
+    try {
+      const user = await prisma.user.update({
+        where: { id },
+        data: { profilePhotoUrl },
+      });
+      deleteProfilePhotoFile(previousPhotoUrl);
+      res.json(user);
+    } catch (err) {
+      deleteProfilePhotoFile(profilePhotoUrl);
+      throw err;
+    }
   }),
 );
 
@@ -74,12 +79,14 @@ usersRouter.delete(
     const existing = await prisma.user.findUnique({ where: { id } });
     if (!existing) throw new NotFoundError(`User not found (id=${id})`);
 
-    deleteProfilePhotoFile(existing.profilePhotoUrl);
+    const previousPhotoUrl = existing.profilePhotoUrl;
 
     const user = await prisma.user.update({
       where: { id },
       data: { profilePhotoUrl: null },
     });
+
+    deleteProfilePhotoFile(previousPhotoUrl);
 
     res.json(user);
   }),
