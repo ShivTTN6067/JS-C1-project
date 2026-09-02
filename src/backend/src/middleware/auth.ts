@@ -77,3 +77,12 @@ export const requireAuth = asyncHandler(async (req, _res, next) => {
   req.auth = auth;
   next();
 });
+
+/** Platform config mutations require a dedicated admin token (not a user session). */
+export const requirePlatformAdmin = asyncHandler(async (req, _res, next) => {
+  const expected = process.env.PLATFORM_ADMIN_TOKEN;
+  if (!expected) throw new UnauthorizedError("Platform admin access is not configured");
+  const token = readBearer(req);
+  if (!token || token !== expected) throw new UnauthorizedError("Invalid platform admin credentials");
+  next();
+});

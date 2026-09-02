@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { asyncHandler } from "../lib/asyncHandler.js";
 import { prisma } from "../lib/prisma.js";
+import { requirePlatformAdmin } from "../middleware/auth.js";
 import { platformConfigSchema } from "../validation/schemas.js";
 
 export const platformRouter = Router();
@@ -23,6 +24,7 @@ platformRouter.get(
 
 platformRouter.patch(
   "/config",
+  requirePlatformAdmin,
   asyncHandler(async (req, res) => {
     const data = platformConfigSchema.parse(req.body);
     await getOrCreateConfig();
