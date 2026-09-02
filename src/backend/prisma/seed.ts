@@ -4,20 +4,22 @@ import { hashPassword } from "../src/lib/password.js";
 const prisma = new PrismaClient();
 
 const VIDEOS = {
-  a: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
-  b: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
-  c: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4",
-  d: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4",
-  e: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4",
-  f: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4",
+  a: "/media/clip-01.mp4",
+  b: "/media/clip-02.mp4",
+  c: "/media/clip-03.mp4",
+  d: "/media/clip-04.mp4",
+  e: "/media/clip-05.mp4",
+  f: "/media/clip-06.mp4",
+  g: "/media/clip-07.mp4",
+  h: "/media/clip-08.mp4",
 };
 
 const posters = {
-  midnight: "https://picsum.photos/seed/midnight-alley/400/600",
-  contract: "https://picsum.photos/seed/last-contract/400/600",
-  office: "https://picsum.photos/seed/office-secrets/400/600",
-  ocean: "https://picsum.photos/seed/ocean-world/400/600",
-  classic: "https://picsum.photos/seed/classic-cinema/400/600",
+  midnight: "/media/poster-midnight.jpg",
+  contract: "/media/poster-contract.jpg",
+  office: "/media/poster-office.jpg",
+  ocean: "/media/poster-ocean.jpg",
+  classic: "/media/poster-classic.jpg",
 };
 
 /**
@@ -237,7 +239,7 @@ async function main() {
     startDate: start,
     entitlementGroupId: null,
     episodes: [
-      { title: "Surface", synopsis: "Light and plankton.", cliffhanger: false, video: VIDEOS.f },
+      { title: "Surface", synopsis: "Light and plankton.", cliffhanger: false, video: VIDEOS.g },
       { title: "The Drop", synopsis: "Into the midnight zone.", cliffhanger: false, video: VIDEOS.a },
     ],
   });
@@ -252,7 +254,7 @@ async function main() {
     startDate: start,
     entitlementGroupId: null,
     episodes: [
-      { title: "The Gate", synopsis: "A silent-era restoration.", cliffhanger: false, video: VIDEOS.b },
+      { title: "The Gate", synopsis: "A silent-era restoration.", cliffhanger: false, video: VIDEOS.h },
     ],
   });
 
@@ -380,8 +382,35 @@ async function main() {
     },
   });
 
+  const midnightEp1 = await prisma.episode.findFirstOrThrow({
+    where: { title: "Midnight Alley 1" },
+  });
+  const contractEp1 = await prisma.episode.findFirstOrThrow({
+    where: { title: "Hour 1" },
+  });
+  await prisma.watchProgress.createMany({
+    data: [
+      {
+        accountId: priya.id,
+        seriesId: midnight.id,
+        episodeId: midnightEp1.id,
+        positionSeconds: 2,
+        durationSeconds: 5,
+        completed: false,
+      },
+      {
+        accountId: priya.id,
+        seriesId: contract.id,
+        episodeId: contractEp1.id,
+        positionSeconds: 1,
+        durationSeconds: 5,
+        completed: false,
+      },
+    ],
+  });
+
   console.log(
-    "Seed complete: tickets plus Micro Drama catalog. Demo logins: priya@example.com / arjun@example.com / meera@example.com (password123).",
+    "Seed complete: tickets plus playable Micro Drama catalog. Demo logins: priya@example.com / arjun@example.com / meera@example.com (password123).",
   );
 }
 
@@ -415,7 +444,7 @@ async function createSeries(input: {
               number: i + 1,
               title: ep.title,
               synopsis: ep.synopsis,
-              durationSeconds: 90,
+              durationSeconds: 5,
               isCliffhanger: ep.cliffhanger,
               videoUrl: ep.video,
               videoUrlLow: ep.video,

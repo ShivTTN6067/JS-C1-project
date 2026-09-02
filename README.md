@@ -96,6 +96,8 @@ Open http://localhost:5173 in your browser.
 
 The home URL is a Hybrid experience picker (VideoReady vs Micro Drama). The original ticket app remains at `/tickets`.
 
+Episode video files live in `src/backend/media/` (tiny generated 9:16 MP4s) and are served at `/media`. Regenerate with `src/backend/scripts/generate-media.sh` then `npm run db:seed`.
+
 ### 3. Profile photos
 
 1. Click **Profiles** in the header.
