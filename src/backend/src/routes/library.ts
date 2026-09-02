@@ -121,22 +121,36 @@ libraryRouter.post(
       throw new ValidationError("Pack 2 requires an entitlement group");
     }
 
-    await prisma.userSubscription.updateMany({
-      where: { accountId: req.auth!.accountId, status: "ACTIVE" },
-      data: { status: "CANCELLED", autoRenew: false },
-    });
+    if (data.packCode === "PACK_2") {
+      const allowed = await prisma.packGroupAccess.findFirst({
+        where: {
+          packCode: data.packCode,
+          entitlementGroupId: data.entitlementGroupId!,
+        },
+      });
+      if (!allowed) {
+        throw new ValidationError("Invalid entitlement group for this pack");
+      }
+    }
 
-    const sub = await prisma.userSubscription.create({
-      data: {
-        accountId: req.auth!.accountId,
-        packCode: data.packCode,
-        billingCycle: data.billingCycle,
-        autoRenew: true,
-        status: "ACTIVE",
-        purchaseChannel: data.purchaseChannel,
-        entitlementGroupId: data.packCode === "PACK_2" ? data.entitlementGroupId ?? null : null,
-        expiresAt: nextBillingExpiry(data.billingCycle),
-      },
+    const sub = await prisma.$transaction(async (tx) => {
+      await tx.userSubscription.updateMany({
+        where: { accountId: req.auth!.accountId, status: "ACTIVE" },
+        data: { status: "CANCELLED", autoRenew: false },
+      });
+
+      return tx.userSubscription.create({
+        data: {
+          accountId: req.auth!.accountId,
+          packCode: data.packCode,
+          billingCycle: data.billingCycle,
+          autoRenew: true,
+          status: "ACTIVE",
+          purchaseChannel: data.purchaseChannel,
+          entitlementGroupId: data.packCode === "PACK_2" ? data.entitlementGroupId ?? null : null,
+          expiresAt: nextBillingExpiry(data.billingCycle),
+        },
+      });
     });
 
     res.status(201).json(sub);

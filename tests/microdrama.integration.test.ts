@@ -69,6 +69,12 @@ async function resetCatalog() {
       },
     ],
   });
+  await prisma.packGroupAccess.createMany({
+    data: [
+      { packCode: "PACK_2", entitlementGroupId: groupA.id },
+      { packCode: "PACK_2", entitlementGroupId: groupB.id },
+    ],
+  });
 
   const md = await prisma.series.create({
     data: {
@@ -321,6 +327,53 @@ describe("Micro Drama Phase 1 API", () => {
     });
     expect(sub?.status).toBe("ACTIVE");
     expect(sub?.autoRenew).toBe(false);
+  });
+
+  it("rejects Pack 2 subscribe with an unknown entitlement group", async () => {
+    const token = await login("free@test.local");
+    const res = await http(
+      "POST",
+      "/api/library/subscribe",
+      {
+        packCode: "PACK_2",
+        billingCycle: "WEEKLY",
+        entitlementGroupId: 99999,
+      },
+      token,
+    );
+    expect(res.status).toBe(400);
+    expect(res.body.error.message).toMatch(/entitlement group/i);
+  });
+
+  it("subscribes to Pack 2 with a valid entitlement group and unlocks matching content", async () => {
+    const token = await login("free@test.local");
+    const groupA = await prisma.entitlementGroup.findFirst({ where: { code: "GROUP_A" } });
+    const hooked = await prisma.series.findFirst({ where: { title: "Hooked" } });
+    const otherGroup = await prisma.series.findFirst({ where: { title: "Other Group Drama" } });
+    const hookedEpisode = await prisma.episode.findFirst({
+      where: { season: { seriesId: hooked!.id }, number: 3 },
+    });
+    const otherEpisode = await prisma.episode.findFirst({
+      where: { season: { seriesId: otherGroup!.id }, number: 1 },
+    });
+
+    const subscribed = await http(
+      "POST",
+      "/api/library/subscribe",
+      {
+        packCode: "PACK_2",
+        billingCycle: "WEEKLY",
+        entitlementGroupId: groupA!.id,
+      },
+      token,
+    );
+    expect(subscribed.status).toBe(201);
+
+    const unlocked = await http("GET", `/api/playback/episodes/${hookedEpisode!.id}`, undefined, token);
+    expect(unlocked.status).toBe(200);
+
+    const locked = await http("GET", `/api/playback/episodes/${otherEpisode!.id}`, undefined, token);
+    expect(locked.status).toBe(402);
   });
 
   it("lets Pack 1 skip the paywall and stores watchlist + progress", async () => {
