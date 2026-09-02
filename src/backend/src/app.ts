@@ -2,6 +2,11 @@ import express from "express";
 import cors from "cors";
 import { usersRouter } from "./routes/users.js";
 import { ticketsRouter } from "./routes/tickets.js";
+import { platformRouter } from "./routes/platform.js";
+import { authRouter } from "./routes/auth.js";
+import { catalogRouter } from "./routes/catalog.js";
+import { playbackRouter } from "./routes/playback.js";
+import { libraryRouter } from "./routes/library.js";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
 import { getUploadsRoot } from "./lib/profilePhotos.js";
 
@@ -21,6 +26,11 @@ export function createApp() {
 
   app.use("/api/users", usersRouter);
   app.use("/api/tickets", ticketsRouter);
+  app.use("/api/platform", platformRouter);
+  app.use("/api/auth", authRouter);
+  app.use("/api/catalog", catalogRouter);
+  app.use("/api/playback", playbackRouter);
+  app.use("/api/library", libraryRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);
