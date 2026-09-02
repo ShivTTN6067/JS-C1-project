@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { createApp } from "../src/backend/src/app.js";
 import { prisma } from "../src/backend/src/lib/prisma.js";
 import { getAvatarsDir } from "../src/backend/src/lib/profilePhotos.js";
@@ -194,5 +194,45 @@ describe("User profile photo API", () => {
     expect(res.status).toBe(200);
     expect(res.body.profilePhotoUrl).toBeNull();
     expect(fs.existsSync(filePath)).toBe(false);
+  });
+
+  it("POST /api/users/:id/profile-photo keeps the previous photo when DB update fails", async () => {
+    const jpeg = Buffer.from(
+      "/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////2wBDAf//////////////////////////////////////////////////////////////////////////////////////wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAb/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCwAA//2Q==",
+      "base64",
+    );
+
+    const first = await uploadPhoto(userId, {
+      filename: "first.jpg",
+      contentType: "image/jpeg",
+      data: jpeg,
+    });
+    const firstPath = path.join(
+      getAvatarsDir(),
+      path.basename(first.body.profilePhotoUrl),
+    );
+
+    const updateSpy = vi
+      .spyOn(prisma.user, "update")
+      .mockRejectedValueOnce(new Error("simulated database failure"));
+
+    const failed = await uploadPhoto(userId, {
+      filename: "second.jpg",
+      contentType: "image/jpeg",
+      data: jpeg,
+    });
+
+    updateSpy.mockRestore();
+
+    expect(failed.status).toBe(500);
+    expect(fs.existsSync(firstPath)).toBe(true);
+
+    const user = await http("GET", `/api/users/${userId}`);
+    expect(user.body.profilePhotoUrl).toBe(first.body.profilePhotoUrl);
+
+    const orphanCount = fs
+      .readdirSync(getAvatarsDir())
+      .filter((name) => name !== path.basename(firstPath)).length;
+    expect(orphanCount).toBe(0);
   });
 });
