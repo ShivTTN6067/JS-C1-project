@@ -20,7 +20,7 @@ test.describe("Support Ticket System regression suite", () => {
   });
 
   test("loads the ticket list with seeded tickets", async ({ page }) => {
-    await page.goto("/");
+    await page.goto("/tickets");
 
     await expect(page.getByRole("heading", { name: "Tickets" })).toBeVisible();
     await expect(page.getByRole("searchbox", { name: "Search tickets" })).toBeVisible();
@@ -31,7 +31,7 @@ test.describe("Support Ticket System regression suite", () => {
   });
 
   test("filters tickets by keyword search", async ({ page }) => {
-    await page.goto("/");
+    await page.goto("/tickets");
 
     await page.getByRole("searchbox", { name: "Search tickets" }).fill("Safari");
 
@@ -44,7 +44,7 @@ test.describe("Support Ticket System regression suite", () => {
   });
 
   test("filters tickets by status", async ({ page }) => {
-    await page.goto("/");
+    await page.goto("/tickets");
     await page.getByRole("searchbox", { name: "Search tickets" }).clear();
 
     await page.getByRole("button", { name: "In Progress", pressed: false }).click();
@@ -150,14 +150,14 @@ test.describe("Support Ticket System regression suite", () => {
   });
 
   test("navigates between primary pages from the header", async ({ page }) => {
-    await page.goto("/");
+    await page.goto("/tickets");
 
     await page.getByRole("link", { name: "Profiles" }).click();
     await expect(page).toHaveURL("/users");
     await expect(page.getByRole("heading", { name: "Team Profiles" })).toBeVisible();
 
     await page.getByRole("link", { name: "Support Tickets" }).click();
-    await expect(page).toHaveURL("/");
+    await expect(page).toHaveURL("/tickets");
     await expect(page.getByRole("heading", { name: "Tickets" })).toBeVisible();
 
     await page.getByRole("link", { name: "New Ticket" }).click();
