@@ -1,7 +1,14 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import express from "express";
 import cors from "cors";
 import { usersRouter } from "./routes/users.js";
 import { ticketsRouter } from "./routes/tickets.js";
+import { platformRouter } from "./routes/platform.js";
+import { authRouter } from "./routes/auth.js";
+import { catalogRouter } from "./routes/catalog.js";
+import { playbackRouter } from "./routes/playback.js";
+import { libraryRouter } from "./routes/library.js";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
 import { getUploadsRoot } from "./lib/profilePhotos.js";
 
@@ -16,11 +23,18 @@ export function createApp() {
   app.use(cors({ origin: corsOrigin && corsOrigin.length > 0 ? corsOrigin : true }));
   app.use(express.json());
   app.use("/uploads", express.static(getUploadsRoot()));
+  const mediaRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../media");
+  app.use("/media", express.static(mediaRoot));
 
   app.get("/api/health", (_req, res) => res.json({ status: "ok" }));
 
   app.use("/api/users", usersRouter);
   app.use("/api/tickets", ticketsRouter);
+  app.use("/api/platform", platformRouter);
+  app.use("/api/auth", authRouter);
+  app.use("/api/catalog", catalogRouter);
+  app.use("/api/playback", playbackRouter);
+  app.use("/api/library", libraryRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

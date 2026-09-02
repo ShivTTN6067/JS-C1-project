@@ -86,6 +86,18 @@ configuration is needed in development.
 
 Open http://localhost:5173 in your browser.
 
+### Demo accounts (Micro Drama)
+
+| Email | Password | Pack |
+| --- | --- | --- |
+| priya@example.com | password123 | Pack 1 All Access (Regular + Kids profiles) |
+| meera@example.com | password123 | Pack 2 Group A only |
+| arjun@example.com | password123 | Free / paywall |
+
+The home URL is a Hybrid experience picker (VideoReady vs Micro Drama). The original ticket app remains at `/tickets`.
+
+Episode video files live in `src/backend/media/` (tiny generated 9:16 MP4s) and are served at `/media`. Regenerate with `src/backend/scripts/generate-media.sh` then `npm run db:seed`.
+
 ### 3. Profile photos
 
 1. Click **Profiles** in the header.
@@ -126,7 +138,8 @@ automatically; they never touch development data.
 
 ## Key Features
 
-- Create, list, view, and update tickets (title, description, priority, assignee).
+- **VideoReady / Micro Drama Phase 1 (web):** hybrid experience picker, isolated MD and VR catalogs, 9:16 reel player, CMS free-episode threshold, cliffhanger paywall, three subscription packs, continue watching, watchlist, guest login gate, and Kids-profile restriction.
+- Create, list, view, and update tickets (title, description, priority, assignee) at `/tickets`.
 - Add comments to a ticket.
 - Upload profile photos for team members (`/users`).
 - Keyword search (title/description) and filter by status.
